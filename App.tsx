@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { enhanceImageWithAutoColor, generateLutImage, setApiKey, removeApiKey } from './services/geminiService';
+import { setApiKey, removeApiKey, enhanceImageWithAutoColor, generateLutImage } from './services/geminiService';
 import { fileToBase64, upscaleImage } from './utils/fileUtils';
 import { generateNeutralHaldImage, convertHaldToCube } from './utils/lutUtils';
 import Header from './components/Header';
@@ -25,7 +25,7 @@ interface ImageJob {
 export type ExportSize = 'original' | '1024' | '2048' | '4k';
 
 const App: React.FC = () => {
-  const [apiKey, _setApiKey] = useState<string | null>(() => localStorage.getItem('gemini_api_key'));
+  const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [jobs, setJobs] = useState<ImageJob[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isZipping, setIsZipping] = useState<boolean>(false);
@@ -87,19 +87,25 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseColor, exportSize, autoAlign, autoCrop]);
 
-  const handleApiKeySave = (newKey: string) => {
-    setApiKey(newKey);
-    _setApiKey(newKey);
+  // Check for API key in local storage on initial render
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini-api-key');
+    if (storedKey) {
+      setApiKey(storedKey);
+      setApiKeyState(storedKey);
+    }
+  }, []);
+
+  const handleApiKeySave = (key: string) => {
+    setApiKey(key);
+    setApiKeyState(key);
   };
 
   const handleApiKeyChangeRequest = () => {
-    if (window.confirm('Are you sure you want to change your API key? This will reset the current session.')) {
-        removeApiKey();
-        _setApiKey(null);
-        handleReset();
-    }
+    removeApiKey();
+    setApiKeyState(null);
   };
-
+  
   const handleImageUpload = (files: FileList) => {
     if (files.length === 0) return;
     
@@ -131,6 +137,10 @@ const App: React.FC = () => {
   const handleEnhanceClick = useCallback(async () => {
     if (jobs.length === 0) {
       setError('Please upload an image first.');
+      return;
+    }
+    if (!apiKey) {
+      setError('API Key is not set. Please set it via the settings.');
       return;
     }
 
@@ -182,7 +192,7 @@ const App: React.FC = () => {
     }
 
     setIsProcessing(false);
-  }, [jobs, baseColor, exportSize, autoAlign, autoCrop]);
+  }, [jobs, baseColor, exportSize, autoAlign, autoCrop, apiKey]);
   
   const handleExportLut = async () => {
     const job = jobs[0];
@@ -201,7 +211,6 @@ const App: React.FC = () => {
       const enhancedBase64 = (await fileToBase64(new File([enhancedBlob], "enhanced.png", {type: mimeType}))).base64;
       const neutralHaldBase64 = neutralHaldUrl.split(',')[1];
       
-      // Fix: Corrected variable name from originalImageBase64 to originalBase64.
       const gradedHaldBase64 = await generateLutImage(originalBase64, enhancedBase64, neutralHaldBase64, mimeType);
       const gradedHaldUrl = `data:image/png;base64,${gradedHaldBase64}`;
 
@@ -265,7 +274,7 @@ const App: React.FC = () => {
   if (!apiKey) {
     return <ApiKeyModal onSave={handleApiKeySave} />;
   }
-
+  
   const hasJobs = jobs.length > 0;
   const isSingleJob = jobs.length === 1;
 

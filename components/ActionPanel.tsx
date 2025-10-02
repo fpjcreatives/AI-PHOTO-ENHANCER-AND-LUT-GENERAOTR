@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // This type should be kept in sync with the one in App.tsx
@@ -69,7 +70,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
     isLoading, isZipping, isGeneratingLut, isEnhanced, imageCount,
     baseColor, onBaseColorChange, exportSize, onExportSizeChange,
     autoAlign, onAutoAlignChange, autoCrop, onAutoCropChange,
-    onApiKeyChangeRequest
+    onApiKeyChangeRequest,
 }) => {
   const isAnyProcessRunning = isLoading || isZipping || isGeneratingLut;
   return (
@@ -188,7 +189,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
         </button>
         <button
           onClick={onApiKeyChangeRequest}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 p-4 font-semibold text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500 transition-colors duration-300"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 font-semibold text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500 transition-colors duration-300"
           title="Change API Key"
         >
           <SettingsIcon className="w-5 h-5" />

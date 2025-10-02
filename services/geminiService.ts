@@ -1,40 +1,36 @@
+
 import { GoogleGenAI, Modality } from '@google/genai';
 
 let ai: GoogleGenAI | null = null;
 const imageModel = 'gemini-2.5-flash-image';
 
-// Initializes the AI client. Caches it for subsequent calls.
+// Sets the API key for the service and stores it in local storage.
+export const setApiKey = (key: string) => {
+  ai = new GoogleGenAI({ apiKey: key });
+  localStorage.setItem('gemini-api-key', key);
+};
+
+// Removes the API key from the service and local storage.
+export const removeApiKey = () => {
+  ai = null;
+  localStorage.removeItem('gemini-api-key');
+};
+
+// Initializes the AI client using a stored key. Caches it for subsequent calls.
 function getAiClient(): GoogleGenAI {
   if (ai) {
     return ai;
   }
   
-  const apiKey = localStorage.getItem('gemini_api_key');
-  if (!apiKey) {
-    // This should ideally be handled by the UI, but as a safeguard:
-    throw new Error("Gemini API key not found. Please set it in the application settings.");
+  const storedKey = localStorage.getItem('gemini-api-key');
+  if (storedKey) {
+      ai = new GoogleGenAI({ apiKey: storedKey });
+      return ai;
   }
   
-  ai = new GoogleGenAI({ apiKey });
-  return ai;
+  throw new Error("Gemini API key has not been set. Please provide one in the settings.");
 }
 
-/**
- * Sets the API key in local storage and resets the AI client instance.
- * @param apiKey The user's Google Gemini API key.
- */
-export function setApiKey(apiKey: string) {
-    localStorage.setItem('gemini_api_key', apiKey);
-    ai = null; // Invalidate the old client instance so it's recreated with the new key
-}
-
-/**
- * Removes the API key from local storage.
- */
-export function removeApiKey() {
-    localStorage.removeItem('gemini_api_key');
-    ai = null;
-}
 
 /**
  * Enhances an image using Gemini's "auto color" capability, with an optional color theme.

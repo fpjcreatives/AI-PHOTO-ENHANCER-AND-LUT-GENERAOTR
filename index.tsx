@@ -1,4 +1,4 @@
-
+// FIX: Import React and ReactDOM to resolve 'Cannot find name' errors.
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
