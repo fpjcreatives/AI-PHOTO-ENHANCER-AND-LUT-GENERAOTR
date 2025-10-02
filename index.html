@@ -27,7 +27,7 @@
 </head>
   <body class="bg-gray-900 text-gray-100">
     <div id="root"></div>
-    <!-- The type is changed to "text/babel" to tell Babel Standalone to transpile this file -->
-    <script type="text/babel" src="./index.tsx"></script>
+    <!-- The type is "text/babel" to be processed, and data-type="module" preserves module context for imports -->
+    <script type="text/babel" data-type="module" src="./index.tsx"></script>
   </body>
 </html>
