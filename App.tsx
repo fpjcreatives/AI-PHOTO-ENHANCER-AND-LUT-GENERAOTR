@@ -1,6 +1,5 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import * as JSZip from 'jszip';
 import { enhanceImageWithAutoColor, generateLutImage, setApiKey, removeApiKey } from './services/geminiService';
 import { fileToBase64, upscaleImage } from './utils/fileUtils';
 import { generateNeutralHaldImage, convertHaldToCube } from './utils/lutUtils';
@@ -11,6 +10,8 @@ import ActionPanel from './components/ActionPanel';
 import ImageCard from './components/ImageCard';
 import ApiKeyModal from './components/ApiKeyModal';
 
+// Declare JSZip as a global variable, as it's now included via a <script> tag.
+declare const JSZip: any;
 
 interface ImageJob {
   id: string;
@@ -233,7 +234,7 @@ const App: React.FC = () => {
     }
 
     setIsZipping(true);
-    const zip = new (JSZip as any)();
+    const zip = new JSZip();
 
     try {
         await Promise.all(enhancedJobs.map(async (job) => {
