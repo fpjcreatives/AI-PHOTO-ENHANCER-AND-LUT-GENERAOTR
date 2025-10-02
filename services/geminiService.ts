@@ -1,12 +1,40 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set.");
+let ai: GoogleGenAI | null = null;
+const imageModel = 'gemini-2.5-flash-image';
+
+// Initializes the AI client. Caches it for subsequent calls.
+function getAiClient(): GoogleGenAI {
+  if (ai) {
+    return ai;
+  }
+  
+  const apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    // This should ideally be handled by the UI, but as a safeguard:
+    throw new Error("Gemini API key not found. Please set it in the application settings.");
+  }
+  
+  ai = new GoogleGenAI({ apiKey });
+  return ai;
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const imageModel = 'gemini-2.5-flash';
+/**
+ * Sets the API key in local storage and resets the AI client instance.
+ * @param apiKey The user's Google Gemini API key.
+ */
+export function setApiKey(apiKey: string) {
+    localStorage.setItem('gemini_api_key', apiKey);
+    ai = null; // Invalidate the old client instance so it's recreated with the new key
+}
 
+/**
+ * Removes the API key from local storage.
+ */
+export function removeApiKey() {
+    localStorage.removeItem('gemini_api_key');
+    ai = null;
+}
 
 /**
  * Enhances an image using Gemini's "auto color" capability, with an optional color theme.
@@ -26,6 +54,7 @@ export const enhanceImageWithAutoColor = async (
   autoAlign?: boolean,
   autoCrop?: boolean
 ): Promise<string> => {
+  const aiClient = getAiClient();
   let prompt = 'Apply auto color correction to this image to enhance its vibrancy, balance the colors, and improve the overall look. Make it look professional. Return only the edited image, with no other text or explanation.';
 
   if (baseColor && baseColor.trim().length > 0) {
@@ -40,13 +69,11 @@ export const enhanceImageWithAutoColor = async (
     prompt += ' Intelligently crop the image to improve composition.';
   }
 
-  // Handle resizing and aspect ratio instructions.
   const maintainAspectRatioInstruction = 'while strictly maintaining the original aspect ratio';
 
   switch (exportSize) {
     case '1024':
       prompt += ` Finally, resize the final image so its longest side is 1024 pixels.`;
-      // We only enforce aspect ratio if auto-cropping isn't active, as cropping may change it.
       if (!autoCrop) prompt += ` ${maintainAspectRatioInstruction}.`;
       break;
     case '2048':
@@ -59,15 +86,13 @@ export const enhanceImageWithAutoColor = async (
       break;
     case 'original':
     default:
-      // If no resize is requested, and no cropping, we should explicitly say not to change dimensions.
       if (!autoCrop && !autoAlign) {
          prompt += ' It is crucial that you do not crop, resize, or change the aspect ratio of the original image.';
       }
       break;
   }
 
-
-  const response = await ai.models.generateContent({
+  const response = await aiClient.models.generateContent({
     model: imageModel,
     contents: {
       parts: [
@@ -81,6 +106,9 @@ export const enhanceImageWithAutoColor = async (
           text: prompt,
         },
       ],
+    },
+    config: {
+      responseModalities: [Modality.IMAGE, Modality.TEXT],
     },
   });
   
@@ -107,9 +135,10 @@ export const generateLutImage = async (
     haldImage: string,
     mimeType: string,
 ): Promise<string> => {
+    const aiClient = getAiClient();
     const prompt = `You are a professional color grading tool. I will provide three images: "Image A" (the original), "Image B" (the color-graded version), and "Image C" (a neutral color grid). Your task is to analyze the color transformation from Image A to Image B. Then, apply that exact same color transformation to Image C. Return only the transformed version of Image C, with no other text or explanation. The output must be a single image. It is crucial that the returned image has the exact same dimensions as Image C (512x512 pixels). Do not resize or alter its dimensions.`;
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
         model: imageModel,
         contents: {
             parts: [
@@ -118,6 +147,9 @@ export const generateLutImage = async (
                 { inlineData: { data: enhancedImage, mimeType } },
                 { inlineData: { data: haldImage, mimeType: 'image/png' } }, // HALD is always PNG
             ]
+        },
+        config: {
+            responseModalities: [Modality.IMAGE, Modality.TEXT],
         },
     });
 

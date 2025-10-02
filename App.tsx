@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as JSZip from 'jszip';
-import { enhanceImageWithAutoColor, generateLutImage } from './services/geminiService';
+import { enhanceImageWithAutoColor, generateLutImage, setApiKey, removeApiKey } from './services/geminiService';
 import { fileToBase64, upscaleImage } from './utils/fileUtils';
 import { generateNeutralHaldImage, convertHaldToCube } from './utils/lutUtils';
 import Header from './components/Header';
@@ -8,6 +9,8 @@ import ImageUploader from './components/ImageUploader';
 import ImageDisplay from './components/ImageDisplay';
 import ActionPanel from './components/ActionPanel';
 import ImageCard from './components/ImageCard';
+import ApiKeyModal from './components/ApiKeyModal';
+
 
 interface ImageJob {
   id: string;
@@ -21,6 +24,7 @@ interface ImageJob {
 export type ExportSize = 'original' | '1024' | '2048' | '4k';
 
 const App: React.FC = () => {
+  const [apiKey, _setApiKey] = useState<string | null>(() => localStorage.getItem('gemini_api_key'));
   const [jobs, setJobs] = useState<ImageJob[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isZipping, setIsZipping] = useState<boolean>(false);
@@ -34,9 +38,30 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isInitialRender = useRef(true);
 
+  const handleReset = useCallback(() => {
+    jobs.forEach(job => {
+        URL.revokeObjectURL(job.originalUrl)
+        if (job.enhancedUrl && job.enhancedUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(job.enhancedUrl);
+        }
+    });
+    setJobs([]);
+    setError(null);
+    setIsProcessing(false);
+    setIsZipping(false);
+    setIsGeneratingLut(false);
+    setBaseColor('');
+    setExportSize('original');
+    setAutoAlign(false);
+    setAutoCrop(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    isInitialRender.current = true; // Reset for the next batch
+  }, [jobs]);
+
   // Effect to reset enhanced images if settings change after enhancement
   useEffect(() => {
-    // Don't run on the initial render
     if (isInitialRender.current) {
       isInitialRender.current = false;
       return;
@@ -47,12 +72,9 @@ const App: React.FC = () => {
       return;
     }
 
-    // When settings that affect the output change, invalidate previous enhancements
-    // so the user can re-run with the new settings.
     setJobs(prevJobs => 
       prevJobs.map(job => {
         if (job.enhancedUrl) {
-          // Clean up the old blob URL to prevent memory leaks
           if (job.enhancedUrl.startsWith('blob:')) {
             URL.revokeObjectURL(job.enhancedUrl);
           }
@@ -61,9 +83,21 @@ const App: React.FC = () => {
         return job;
       })
     );
-  // This effect should run ONLY when the user changes these specific settings.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseColor, exportSize, autoAlign, autoCrop]);
+
+  const handleApiKeySave = (newKey: string) => {
+    setApiKey(newKey);
+    _setApiKey(newKey);
+  };
+
+  const handleApiKeyChangeRequest = () => {
+    if (window.confirm('Are you sure you want to change your API key? This will reset the current session.')) {
+        removeApiKey();
+        _setApiKey(null);
+        handleReset();
+    }
+  };
 
   const handleImageUpload = (files: FileList) => {
     if (files.length === 0) return;
@@ -103,7 +137,6 @@ const App: React.FC = () => {
     setError(null);
 
     for (const job of jobs) {
-      // Only process jobs that haven't been enhanced and don't have an error
       if (job.enhancedUrl || job.error) continue;
 
       setJobs(prevJobs => prevJobs.map(j =>
@@ -123,7 +156,6 @@ const App: React.FC = () => {
         
         let finalImageUrl = `data:${mimeType};base64,${enhancedImageBase64}`;
 
-        // If a specific size is requested, perform high-quality upscaling on the client.
         if (exportSize !== 'original') {
             finalImageUrl = await upscaleImage(finalImageUrl, exportSize);
         }
@@ -141,8 +173,9 @@ const App: React.FC = () => {
         });
       } catch (err) {
         console.error(`Failed to enhance ${job.file.name}:`, err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to enhance';
         setJobs(prevJobs => prevJobs.map(j =>
-          j.id === job.id ? { ...j, error: 'Failed to enhance', isLoading: false } : j
+          j.id === job.id ? { ...j, error: errorMessage, isLoading: false } : j
         ));
       }
     }
@@ -160,24 +193,19 @@ const App: React.FC = () => {
     setIsGeneratingLut(true);
     setError(null);
     try {
-      // 1. Generate the neutral HALD image client-side
       const neutralHaldUrl = await generateNeutralHaldImage();
-
-      // 2. Get base64 for all three images
       const { base64: originalBase64, mimeType } = await fileToBase64(job.file);
       const enhancedResponse = await fetch(job.enhancedUrl);
       const enhancedBlob = await enhancedResponse.blob();
       const enhancedBase64 = (await fileToBase64(new File([enhancedBlob], "enhanced.png", {type: mimeType}))).base64;
       const neutralHaldBase64 = neutralHaldUrl.split(',')[1];
       
-      // 3. Send to Gemini to get the color-graded HALD
+      // Fix: Corrected variable name from originalImageBase64 to originalBase64.
       const gradedHaldBase64 = await generateLutImage(originalBase64, enhancedBase64, neutralHaldBase64, mimeType);
       const gradedHaldUrl = `data:image/png;base64,${gradedHaldBase64}`;
 
-      // 4. Convert the graded HALD image to a .cube file string
       const cubeFileContent = await convertHaldToCube(gradedHaldUrl);
       
-      // 5. Trigger download
       const blob = new Blob([cubeFileContent], { type: 'text/plain' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -190,7 +218,8 @@ const App: React.FC = () => {
 
     } catch (err) {
       console.error("Failed to generate LUT:", err);
-      setError("Could not generate the .cube LUT file.");
+      const errorMessage = err instanceof Error ? err.message : 'Could not generate the .cube LUT file.';
+      setError(errorMessage);
     } finally {
       setIsGeneratingLut(false);
     }
@@ -232,28 +261,9 @@ const App: React.FC = () => {
     }
   };
 
-
-  const handleReset = () => {
-    jobs.forEach(job => {
-        URL.revokeObjectURL(job.originalUrl)
-        if (job.enhancedUrl && job.enhancedUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(job.enhancedUrl);
-        }
-    });
-    setJobs([]);
-    setError(null);
-    setIsProcessing(false);
-    setIsZipping(false);
-    setIsGeneratingLut(false);
-    setBaseColor('');
-    setExportSize('original');
-    setAutoAlign(false);
-    setAutoCrop(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    isInitialRender.current = true; // Reset for the next batch
-  };
+  if (!apiKey) {
+    return <ApiKeyModal onSave={handleApiKeySave} />;
+  }
 
   const hasJobs = jobs.length > 0;
   const isSingleJob = jobs.length === 1;
@@ -303,6 +313,7 @@ const App: React.FC = () => {
               onAutoAlignChange={setAutoAlign}
               autoCrop={autoCrop}
               onAutoCropChange={setAutoCrop}
+              onApiKeyChangeRequest={handleApiKeyChangeRequest}
             />
           </div>
         )}

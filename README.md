@@ -27,8 +27,8 @@ This project is designed to be simple to run without a complex build setup.
 
 ### Prerequisites
 
-- A local web server (e.g., Python's `http.server` or the VS Code [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) extension).
-- An environment where the `process.env.API_KEY` variable is accessible to the JavaScript code. You can get a Google Gemini API Key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+-   A modern web browser (e.g., Chrome, Firefox, Safari, Edge).
+-   A Google Gemini API Key. You can get one for free from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ### Running the App
 
@@ -38,26 +38,19 @@ This project is designed to be simple to run without a complex build setup.
     cd ai-photo-enhancer
     ```
 
-2.  **Provide the API Key:**
-    The application requires a Google Gemini API Key to be available via `process.env.API_KEY`. You must configure your local development and deployment environments to provide this variable. **Do not hardcode your key in the source files.**
+2.  **Open `index.html`:**
+    Since this is a client-side only application with no build step, you can simply open the `index.html` file in your web browser. For best results, serve the files using a local web server (e.g., using the VS Code [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) extension or `python -m http.server`).
 
-3.  **Serve the files:**
-    Start your local web server from the project's root directory. For example, using Python:
-    ```bash
-    python -m http.server
-    ```
-    Or, right-click `index.html` in VS Code and select "Open with Live Server".
-
-4.  **Open in browser:**
-    Navigate to the local server address (e.g., `http://localhost:8000`).
+3.  **Enter Your API Key:**
+    On first launch, the application will prompt you to enter your Google Gemini API Key. This key is stored securely in your browser's local storage and is only used to communicate directly with the Google API.
 
 ## 🌐 Deployment
 
 ### GitHub Pages
 
-Since this project has no build step, you can deploy it directly to GitHub Pages by enabling it in your repository settings to serve from your main branch.
+This project is perfectly suited for deployment on static hosting services like GitHub Pages, Vercel, or Netlify. Since it has no build step, you can deploy it directly.
 
-**⚠️ Security Warning:** Deploying this application in its current state to a public URL will expose your `API_KEY` in the client-side code, which is a major security risk. For a public deployment, you must refactor the application to use a backend proxy or a serverless function that securely handles API calls. Your deployment environment (e.g., Vercel, Netlify, or a custom server) would be configured with the API key as a secret environment variable, and the frontend would call your proxy instead of the Gemini API directly.
+**The application is secure to deploy publicly.** It works by asking each user for their own API key, which is stored locally on their device and never exposed. There are no server-side components or secrets to manage.
 
 ## 📄 License
 
