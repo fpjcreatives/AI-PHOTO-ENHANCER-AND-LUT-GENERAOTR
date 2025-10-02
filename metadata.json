@@ -1,0 +1,5 @@
+{
+  "name": "AI Photo Enhancer",
+  "description": "An AI-powered photo editing app that uses the Gemini 'Nano Banana' model to automatically enhance image colors and vibrancy.",
+  "requestFramePermissions": []
+}
