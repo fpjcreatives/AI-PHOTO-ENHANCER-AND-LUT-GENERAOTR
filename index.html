@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Photo Enhancer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- This script transpiles JSX and TSX code directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
       body {
         -webkit-font-smoothing: antialiased;
@@ -25,6 +27,7 @@
 </head>
   <body class="bg-gray-900 text-gray-100">
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <!-- The type is changed to "text/babel" to tell Babel Standalone to transpile this file -->
+    <script type="text/babel" src="./index.tsx"></script>
   </body>
 </html>
